@@ -135,14 +135,19 @@ class ExcelExportService
 
         $writer = new Xlsx($this->spreadsheet);
 
-        // Save to a temporary file on the server
-        $tempPath = tempnam(sys_get_temp_dir(), 'attendance_');
-        $writer->save($tempPath);
+        // Force clear any output buffers to prevent corruption or header issues
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
 
-        // Return as a standard download response which browsers respect better
-        return response()->download($tempPath, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ])->deleteFileAfterSend(true);
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"; filename*=' . "UTF-8''" . rawurlencode($filename),
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Pragma'              => 'public',
+        ]);
     }
 
     public function getSheet(): \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet
