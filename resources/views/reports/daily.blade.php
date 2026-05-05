@@ -4,7 +4,7 @@
 @section('page-title', 'Daily Attendance Report')
 
 @section('topbar-actions')
-    <a href="{{ route('reports.daily.export') }}?{{ http_build_query(request()->all()) }}" class="btn btn-ghost">⬇ Export CSV</a>
+    <a href="{{ route('reports.daily.export') }}?{{ http_build_query(request()->all()) }}" class="btn btn-ghost">⬇ Export Excel</a>
 @endsection
 
 @section('content')

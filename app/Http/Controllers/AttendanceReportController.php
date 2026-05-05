@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
 use App\Models\Employee;
+use App\Services\ExcelExportService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -64,38 +65,51 @@ class AttendanceReportController extends Controller
         $dayLogs = AttendanceLog::whereDate('punch_time', $date->format('Y-m-d'))
             ->orderBy('punch_time')->get()->groupBy('emp_code');
 
-        $filename = 'daily_report_' . $date->format('Y-m-d') . '.csv';
-        $headers  = [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ];
+        $cols  = ['Emp Code', 'Name', 'Department', 'Status', 'First In', 'Last Out', 'Hours Worked', 'Late Arrival', 'Total Punches'];
+        $excel = new ExcelExportService();
 
-        $callback = function () use ($employees, $dayLogs, $shiftStart) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, ['Emp Code', 'Name', 'Department', 'Status', 'First In', 'Last Out', 'Hours Worked', 'Late', 'Punch Count']);
-            foreach ($employees as $emp) {
-                $logs    = $dayLogs->get($emp->emp_code, collect());
-                $present = $logs->isNotEmpty();
-                $firstIn = $logs->where('punch_state', '0')->first();
-                $lastOut = $logs->where('punch_state', '1')->last();
-                $hours   = ($firstIn && $lastOut) ? round(Carbon::parse($firstIn->punch_time)->diffInMinutes(Carbon::parse($lastOut->punch_time)) / 60, 1) : '';
-                $late    = $present && $firstIn && Carbon::parse($firstIn->punch_time)->format('H:i') > $shiftStart;
-                fputcsv($file, [
-                    $emp->emp_code,
-                    trim($emp->first_name . ' ' . $emp->last_name),
-                    $emp->department ?? '',
-                    $present ? 'Present' : 'Absent',
-                    $firstIn ? Carbon::parse($firstIn->punch_time)->format('h:i A') : '',
-                    $lastOut ? Carbon::parse($lastOut->punch_time)->format('h:i A') : '',
-                    $hours,
-                    $late ? 'Yes' : 'No',
-                    $logs->count(),
-                ]);
-            }
-            fclose($file);
-        };
+        $excel->addTitleRow(
+            'AttendanceIQ — Daily Attendance Report',
+            'Date: ' . $date->format('d F Y') . '  |  Shift Start: ' . $shiftStart . '  |  Generated: ' . now()->format('d M Y, h:i A'),
+            count($cols)
+        );
+        $excel->applyHeaders('Daily Report', $cols, 3);
 
-        return response()->stream($callback, 200, $headers);
+        $row = 4;
+        foreach ($employees as $emp) {
+            $logs    = $dayLogs->get($emp->emp_code, collect());
+            $present = $logs->isNotEmpty();
+            $firstIn = $logs->where('punch_state', '0')->first();
+            $lastOut = $logs->where('punch_state', '1')->last();
+            $hours   = ($firstIn && $lastOut)
+                ? round(Carbon::parse($firstIn->punch_time)->diffInMinutes(Carbon::parse($lastOut->punch_time)) / 60, 1)
+                : '';
+            $late    = $present && $firstIn && Carbon::parse($firstIn->punch_time)->format('H:i') > $shiftStart;
+            $status  = !$present ? 'Absent' : ($late ? 'Late' : 'On Time');
+
+            $excel->writeRow($row, [
+                $emp->emp_code,
+                trim($emp->first_name . ' ' . $emp->last_name),
+                $emp->department ?? '',
+                $present ? 'Present' : 'Absent',
+                $firstIn ? Carbon::parse($firstIn->punch_time)->format('h:i A') : '—',
+                $lastOut ? Carbon::parse($lastOut->punch_time)->format('h:i A') : '—',
+                $hours ? $hours . 'h' : '—',
+                $late ? 'Yes' : 'No',
+                $logs->count(),
+            ], $status);
+            $row++;
+        }
+
+        // Summary row at bottom
+        $ws = $excel->getSheet();
+        $row++;
+        $ws->setCellValue('A' . $row, 'SUMMARY');
+        $ws->setCellValue('D' . $row, 'Present: ' . collect($employees)->filter(fn($e) => $dayLogs->has($e->emp_code))->count());
+        $ws->setCellValue('E' . $row, 'Absent: ' . collect($employees)->filter(fn($e) => !$dayLogs->has($e->emp_code))->count());
+        $ws->getStyle('A' . $row . ':I' . $row)->getFont()->setBold(true);
+
+        return $excel->download('daily_report_' . $date->format('Y-m-d') . '.xlsx');
     }
 
     public function monthly(Request $request)
@@ -193,7 +207,6 @@ class AttendanceReportController extends Controller
 
     public function exportMonthly(Request $request)
     {
-        // Re-use monthly logic and stream CSV
         $month      = $request->input('month', now()->format('Y-m'));
         $shiftStart = $request->input('shift_start', '09:30');
         $startDate  = Carbon::parse($month . '-01');
@@ -208,42 +221,64 @@ class AttendanceReportController extends Controller
         $allLogs   = AttendanceLog::whereBetween('punch_time', [$startDate, $endDate])
             ->get()->groupBy('emp_code');
 
-        $filename = 'monthly_report_' . $month . '.csv';
-        $headers  = [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ];
+        $cols  = ['Emp Code', 'Name', 'Department', 'Present Days', 'Absent Days', 'Late Arrivals', 'Avg Hours/Day', 'Attendance %'];
+        $excel = new ExcelExportService();
 
-        $callback = function () use ($employees, $allLogs, $workingDays, $shiftStart) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, ['Emp Code', 'Name', 'Department', 'Present Days', 'Absent Days', 'Late Arrivals', 'Avg Hours/Day', 'Attendance %']);
-            foreach ($employees as $emp) {
-                $empLogs   = $allLogs->get($emp->emp_code, collect())->groupBy(fn($l) => Carbon::parse($l->punch_time)->format('Y-m-d'));
-                $present   = $empLogs->count();
-                $lateDays  = 0;
-                $totalH    = 0;
-                $dc        = 0;
-                foreach ($empLogs as $dayLogs) {
-                    $fi = $dayLogs->where('punch_state', '0')->first();
-                    $lo = $dayLogs->where('punch_state', '1')->last();
-                    if ($fi && Carbon::parse($fi->punch_time)->format('H:i') > $shiftStart) $lateDays++;
-                    if ($fi && $lo) { $totalH += Carbon::parse($fi->punch_time)->diffInMinutes(Carbon::parse($lo->punch_time)) / 60; $dc++; }
+        $excel->addTitleRow(
+            'AttendanceIQ — Monthly Attendance Summary',
+            Carbon::parse($month . '-01')->format('F Y') . '  |  Working Days: ' . $workingDays . '  |  Shift Start: ' . $shiftStart . '  |  Generated: ' . now()->format('d M Y, h:i A'),
+            count($cols)
+        );
+        $excel->applyHeaders('Monthly Summary', $cols, 3);
+
+        $row = 4;
+        foreach ($employees as $emp) {
+            $empLogs  = $allLogs->get($emp->emp_code, collect())->groupBy(fn($l) => Carbon::parse($l->punch_time)->format('Y-m-d'));
+            $present  = $empLogs->count();
+            $lateDays = 0;
+            $totalH   = 0;
+            $dc       = 0;
+
+            foreach ($empLogs as $dayLogs) {
+                $fi = $dayLogs->where('punch_state', '0')->first();
+                $lo = $dayLogs->where('punch_state', '1')->last();
+                if ($fi && Carbon::parse($fi->punch_time)->format('H:i') > $shiftStart) $lateDays++;
+                if ($fi && $lo) {
+                    $totalH += Carbon::parse($fi->punch_time)->diffInMinutes(Carbon::parse($lo->punch_time)) / 60;
+                    $dc++;
                 }
-                $pct = $workingDays > 0 ? round(($present / $workingDays) * 100) : 0;
-                fputcsv($file, [
-                    $emp->emp_code,
-                    trim($emp->first_name . ' ' . $emp->last_name),
-                    $emp->department ?? '',
-                    $present,
-                    max(0, $workingDays - $present),
-                    $lateDays,
-                    $dc > 0 ? round($totalH / $dc, 1) : '',
-                    $pct . '%',
-                ]);
             }
-            fclose($file);
-        };
 
-        return response()->stream($callback, 200, $headers);
+            $absent = max(0, $workingDays - $present);
+            $pct    = $workingDays > 0 ? round(($present / $workingDays) * 100) : 0;
+            $status = $pct >= 80 ? 'Present' : ($pct >= 60 ? 'Late' : 'Absent');
+
+            $excel->writeRow($row, [
+                $emp->emp_code,
+                trim($emp->first_name . ' ' . $emp->last_name),
+                $emp->department ?? '',
+                $present,
+                $absent,
+                $lateDays,
+                $dc > 0 ? round($totalH / $dc, 1) . 'h' : '—',
+                $pct . '%',
+            ], $status);
+            $row++;
+        }
+
+        // Totals row
+        $ws = $excel->getSheet();
+        $row++;
+        $totalPresent = array_sum(array_column(
+            collect($employees)->map(fn($e) => ['p' => $allLogs->get($e->emp_code, collect())->groupBy(fn($l) => Carbon::parse($l->punch_time)->format('Y-m-d'))->count()])->toArray(), 'p'
+        ));
+        $ws->setCellValue('A' . $row, 'TOTALS');
+        $ws->setCellValue('D' . $row, $totalPresent);
+        $ws->setCellValue('E' . $row, array_sum(array_column(array_map(fn($e) => ['a' => max(0, $workingDays - $allLogs->get($e->emp_code, collect())->groupBy(fn($l) => Carbon::parse($l->punch_time)->format('Y-m-d'))->count())], $employees->all()), 'a')));
+        $ws->getStyle('A' . $row . ':H' . $row)->getFont()->setBold(true);
+        $ws->getStyle('A' . $row . ':H' . $row)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FF1E2035');
+
+        return $excel->download('monthly_report_' . $month . '.xlsx');
     }
 }

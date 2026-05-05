@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
 use App\Models\Employee;
+use App\Services\ExcelExportService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -98,32 +99,34 @@ class DashboardController extends Controller
 
         $logs      = $query->get();
         $employees = Employee::all()->keyBy('emp_code');
+        $dateLabel = $request->date ?? today()->format('Y-m-d');
 
-        $filename = 'attendance_' . ($request->date ?? today()->format('Y-m-d')) . '.csv';
+        $excel = new ExcelExportService();
+        $cols  = ['Emp Code', 'Name', 'Department', 'Punch Time', 'Punch Type', 'Terminal'];
 
-        $headers = [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ];
+        $excel->addTitleRow(
+            'AttendanceIQ — Punch Records',
+            'Date: ' . $dateLabel . '  |  Generated: ' . now()->format('d M Y, h:i A'),
+            count($cols)
+        );
+        $excel->applyHeaders('Attendance Logs', $cols, 3);
 
-        $callback = function () use ($logs, $employees) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, ['Employee Code', 'Name', 'Department', 'Punch Time', 'Type', 'Terminal']);
-            foreach ($logs as $log) {
-                $emp = $employees->get($log->emp_code);
-                fputcsv($file, [
-                    $log->emp_code,
-                    trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')),
-                    $emp->department ?? '',
-                    $log->punch_time,
-                    $log->punch_state == '0' ? 'Check In' : ($log->punch_state == '1' ? 'Check Out' : 'Break'),
-                    $log->terminal_alias ?? '',
-                ]);
-            }
-            fclose($file);
-        };
+        $row = 4;
+        foreach ($logs as $log) {
+            $emp     = $employees->get($log->emp_code);
+            $type    = $log->punch_state == '0' ? 'Check In' : ($log->punch_state == '1' ? 'Check Out' : 'Break');
+            $excel->writeRow($row, [
+                $log->emp_code,
+                trim(($emp->first_name ?? '') . ' ' . ($emp->last_name ?? '')),
+                $emp->department ?? '',
+                Carbon::parse($log->punch_time)->format('d/m/Y h:i A'),
+                $type,
+                $log->terminal_alias ?? '',
+            ], $type);
+            $row++;
+        }
 
-        return response()->stream($callback, 200, $headers);
+        return $excel->download('attendance_' . $dateLabel . '.xlsx');
     }
 
     public function employees()

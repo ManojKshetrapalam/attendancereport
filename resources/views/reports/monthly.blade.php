@@ -4,7 +4,7 @@
 @section('page-title', 'Monthly Attendance Summary')
 
 @section('topbar-actions')
-    <a href="{{ route('reports.monthly.export') }}?{{ http_build_query(request()->all()) }}" class="btn btn-ghost">⬇ Export CSV</a>
+    <a href="{{ route('reports.monthly.export') }}?{{ http_build_query(request()->all()) }}" class="btn btn-ghost">⬇ Export Excel</a>
 @endsection
 
 @section('content')
