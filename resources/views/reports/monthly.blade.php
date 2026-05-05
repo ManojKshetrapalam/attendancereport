@@ -4,7 +4,7 @@
 @section('page-title', 'Monthly Attendance Summary')
 
 @section('topbar-actions')
-    <a href="{{ route('reports.monthly.export', ['filename' => 'monthly_report_' . $month] + request()->all()) }}" class="btn btn-ghost">⬇ Export Excel</a>
+    <a href="{{ route('reports.monthly.export', ['filename' => 'monthly_report_' . $month] + request()->all()) }}" download="monthly_report_{{ $month }}.xlsx" class="btn btn-ghost">⬇ Export Excel</a>
 @endsection
 
 @section('content')
