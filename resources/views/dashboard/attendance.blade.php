@@ -28,6 +28,7 @@
             <div style="display:flex;gap:8px">
                 <button type="submit" class="btn btn-primary">🔍 Filter</button>
                 <a href="{{ route('attendance.index') }}" class="btn btn-ghost">Reset</a>
+                <a href="/debug-download" class="btn" style="background:#ef4444;color:white">🛠 Test Download</a>
             </div>
         </div>
         <div style="margin-left:auto;display:flex;align-items:flex-end">
