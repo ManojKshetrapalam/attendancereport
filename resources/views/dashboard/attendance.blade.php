@@ -28,11 +28,11 @@
             <div style="display:flex;gap:8px">
                 <button type="submit" class="btn btn-primary">🔍 Filter</button>
                 <a href="{{ route('attendance.index') }}" class="btn btn-ghost">Reset</a>
-                <a href="/debug-download" download="test_file_ok.txt" class="btn" style="background:#ef4444;color:white">🛠 Test Download</a>
+                <a href="/debug-download" download="test_file_ok.txt" target="_blank" class="btn" style="background:#ef4444;color:white">🛠 Test Download</a>
             </div>
         </div>
         <div style="margin-left:auto;display:flex;align-items:flex-end">
-            <a href="{{ route('attendance.export', ['filename' => 'attendance_' . (request('date') ?: today()->format('Y-m-d'))] + request()->all()) }}" download="attendance_{{ request('date') ?: today()->format('Y-m-d') }}.xlsx" class="btn btn-ghost">⬇ Export Excel</a>
+            <a href="{{ route('attendance.export', ['filename' => 'attendance_' . (request('date') ?: today()->format('Y-m-d'))] + request()->all()) }}" download="attendance_{{ request('date') ?: today()->format('Y-m-d') }}.xlsx" target="_blank" class="btn btn-ghost">⬇ Export Excel</a>
         </div>
     </form>
 </div>

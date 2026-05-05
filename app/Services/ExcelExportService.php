@@ -141,12 +141,20 @@ class ExcelExportService
             mkdir($tempDir, 0777, true);
         }
 
-        $tempPath = $tempDir . '/' . $filename;
+        $tempPath = $tempDir . '/' . uniqid() . '.xlsx';
         $writer->save($tempPath);
 
-        // Serve the file from disk
+        // Serve the file from disk with aggressive headers
+        if (ob_get_length()) ob_end_clean();
+
         return response()->download($tempPath, $filename, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Type' => 'application/octet-stream',
+            'Content-Description' => 'File Transfer',
+            'Content-Transfer-Encoding' => 'binary',
+            'Access-Control-Expose-Headers' => 'Content-Disposition',
+            'Pragma' => 'public',
+            'Expires' => '0',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
         ])->deleteFileAfterSend(true);
     }
 

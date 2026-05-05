@@ -4,7 +4,7 @@
 @section('page-title', 'Daily Attendance Report')
 
 @section('topbar-actions')
-    <a href="{{ route('reports.daily.export', ['filename' => 'daily_report_' . $date->format('Y-m-d')] + request()->all()) }}" download="daily_report_{{ $date->format('Y-m-d') }}.xlsx" class="btn btn-ghost">⬇ Export Excel</a>
+    <a href="{{ route('reports.daily.export', ['filename' => 'daily_report_' . $date->format('Y-m-d')] + request()->all()) }}" download="daily_report_{{ $date->format('Y-m-d') }}.xlsx" target="_blank" class="btn btn-ghost">⬇ Export Excel</a>
 @endsection
 
 @section('content')
