@@ -128,24 +128,21 @@ class ExcelExportService
     /**
      * Stream the .xlsx file to browser.
      */
-    public function download(string $filename): StreamedResponse
+    public function download(string $filename)
     {
         $this->autoSize();
         $this->spreadsheet->setActiveSheetIndex(0);
 
         $writer = new Xlsx($this->spreadsheet);
 
-        return response()->streamDownload(function () use ($writer) {
-            // Clear any previous output buffers to prevent file corruption
-            if (ob_get_length()) {
-                ob_end_clean();
-            }
-            $writer->save('php://output');
-        }, $filename, [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control'       => 'max-age=0',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        // Save to a temporary file on the server
+        $tempPath = tempnam(sys_get_temp_dir(), 'attendance_');
+        $writer->save($tempPath);
+
+        // Return as a standard download response which browsers respect better
+        return response()->download($tempPath, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function getSheet(): \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet
