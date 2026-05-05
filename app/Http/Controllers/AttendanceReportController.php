@@ -56,7 +56,7 @@ class AttendanceReportController extends Controller
         return view('reports.daily', compact('date', 'shiftStart', 'report', 'summary'));
     }
 
-    public function exportDaily(Request $request)
+    public function exportDaily(Request $request, $filename)
     {
         $date       = $request->filled('date') ? Carbon::parse($request->date) : today();
         $shiftStart = $request->input('shift_start', '09:30');
@@ -205,7 +205,7 @@ class AttendanceReportController extends Controller
         ));
     }
 
-    public function exportMonthly(Request $request)
+    public function exportMonthly(Request $request, $filename)
     {
         $month      = $request->input('month', now()->format('Y-m'));
         $shiftStart = $request->input('shift_start', '09:30');

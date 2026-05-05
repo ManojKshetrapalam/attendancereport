@@ -135,19 +135,19 @@ class ExcelExportService
 
         $writer = new Xlsx($this->spreadsheet);
 
-        // Force clear any output buffers to prevent corruption or header issues
-        while (ob_get_level() > 0) {
-            ob_end_clean();
+        // Ensure directory exists
+        $tempDir = storage_path('app/temp_exports');
+        if (!file_exists($tempDir)) {
+            mkdir($tempDir, 0777, true);
         }
 
-        return response()->streamDownload(function () use ($writer) {
-            $writer->save('php://output');
-        }, $filename, [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"; filename*=' . "UTF-8''" . rawurlencode($filename),
-            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
-            'Pragma'              => 'public',
-        ]);
+        $tempPath = $tempDir . '/' . $filename;
+        $writer->save($tempPath);
+
+        // Serve the file from disk
+        return response()->download($tempPath, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function getSheet(): \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet

@@ -89,7 +89,7 @@ class DashboardController extends Controller
         return view('dashboard.attendance', compact('logs', 'employees'));
     }
 
-    public function exportAttendance(Request $request)
+    public function exportAttendance(Request $request, $filename)
     {
         $query = AttendanceLog::query()->orderBy('punch_time', 'desc');
 

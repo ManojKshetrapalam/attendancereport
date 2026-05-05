@@ -31,7 +31,7 @@
             </div>
         </div>
         <div style="margin-left:auto;display:flex;align-items:flex-end">
-            <a href="{{ route('attendance.export') }}?{{ http_build_query(request()->all()) }}" class="btn btn-ghost">⬇ Export Excel</a>
+            <a href="{{ route('attendance.export', ['filename' => 'attendance_' . (request('date') ?: today()->format('Y-m-d'))] + request()->all()) }}" class="btn btn-ghost">⬇ Export Excel</a>
         </div>
     </form>
 </div>
