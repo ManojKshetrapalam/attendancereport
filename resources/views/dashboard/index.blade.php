@@ -207,84 +207,103 @@
 
 @push('scripts')
 <script>
-// Common chart options
-const commonScales = {
-    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
-    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } }, beginAtZero: true }
-};
-
-// Hourly Chart
-const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
-const hourlyData = @json($hourlyData);
-new Chart(hourlyCtx, {
-    type: 'bar',
-    data: {
-        labels: Object.keys(hourlyData).map(h => h + ':00'),
-        datasets: [{
-            label: 'Punches',
-            data: Object.values(hourlyData),
-            backgroundColor: 'rgba(99, 102, 241, 0.5)',
-            borderColor: 'rgba(99, 102, 241, 1)',
-            borderWidth: 1,
-            borderRadius: 6,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: commonScales
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if Chart is available (it's loaded via app.js)
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js not found. Ensuring window.Chart is set...');
     }
-});
 
-// Weekly Chart
-const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
-const weeklyData = @json($weeklyTrend);
-new Chart(weeklyCtx, {
-    type: 'line',
-    data: {
-        labels: Object.keys(weeklyData),
-        datasets: [{
-            label: 'Present Count',
-            data: Object.values(weeklyData),
-            borderColor: '#22C55E',
-            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: '#22C55E',
-            pointRadius: 4,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: commonScales
-    }
-});
+    // Common chart options
+    const commonScales = {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 10 } }, beginAtZero: true }
+    };
 
-// Department Chart
-const deptCtx = document.getElementById('deptChart').getContext('2d');
-const deptData = @json($deptDistribution);
-new Chart(deptCtx, {
-    type: 'doughnut',
-    data: {
-        labels: Object.keys(deptData),
-        datasets: [{
-            data: Object.values(deptData),
-            backgroundColor: [
-                '#6366F1', '#22C55E', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6', '#14B8A6'
-            ],
-            borderWidth: 0,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: { 
-                position: 'bottom',
-                labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12, padding: 15 }
+    // Hourly Chart
+    const hourlyEl = document.getElementById('hourlyChart');
+    if (hourlyEl) {
+        const hourlyCtx = hourlyEl.getContext('2d');
+        const hourlyData = @json($hourlyData);
+        new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(hourlyData).map(h => h + ':00'),
+                datasets: [{
+                    label: 'Punches',
+                    data: Object.values(hourlyData),
+                    backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                    borderColor: 'rgba(99, 102, 241, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: commonScales
             }
-        },
-        cutout: '70%'
+        });
+    }
+
+    // Weekly Chart
+    const weeklyEl = document.getElementById('weeklyChart');
+    if (weeklyEl) {
+        const weeklyCtx = weeklyEl.getContext('2d');
+        const weeklyData = @json($weeklyTrend);
+        new Chart(weeklyCtx, {
+            type: 'line',
+            data: {
+                labels: Object.keys(weeklyData),
+                datasets: [{
+                    label: 'Present Count',
+                    data: Object.values(weeklyData),
+                    borderColor: '#22C55E',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#22C55E',
+                    pointRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: commonScales
+            }
+        });
+    }
+
+    // Department Chart
+    const deptEl = document.getElementById('deptChart');
+    if (deptEl) {
+        const deptCtx = deptEl.getContext('2d');
+        const deptData = @json($deptDistribution);
+        new Chart(deptCtx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(deptData),
+                datasets: [{
+                    data: Object.values(deptData),
+                    backgroundColor: [
+                        '#6366F1', '#22C55E', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6', '#14B8A6'
+                    ],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        position: 'bottom',
+                        labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12, padding: 15 }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
     }
 });
 </script>
