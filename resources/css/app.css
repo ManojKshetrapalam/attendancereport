@@ -11,6 +11,7 @@
     --color-green: #10b981;
     --color-red: #ef4444;
     --color-yellow: #f59e0b;
+    --color-orange: #f97316;
     --color-text: #e2e8f0;
     --color-muted: #64748b;
 }
@@ -112,6 +113,7 @@ body { background: var(--color-bg); color: var(--color-text); margin: 0; }
 .stat-card.red::before { background: var(--color-red); }
 .stat-card.yellow::before { background: var(--color-yellow); }
 .stat-card.blue::before { background: var(--color-accent); }
+.stat-card.orange::before { background: var(--color-orange); }
 
 .stat-icon { font-size: 28px; margin-bottom: 12px; }
 .stat-value { font-size: 36px; font-weight: 700; color: white; line-height: 1; }

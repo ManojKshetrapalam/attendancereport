@@ -55,6 +55,57 @@ class DashboardController extends Controller
         }
         ksort($hourlyData);
 
+        // Weekly Trend (last 7 days)
+        $weeklyTrend = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = today()->subDays($i)->format('Y-m-d');
+            $count = AttendanceLog::whereDate('punch_time', $date)->distinct('emp_code')->count();
+            $weeklyTrend[today()->subDays($i)->format('D, d M')] = $count;
+        }
+
+        // Department Distribution
+        $deptDistribution = Employee::select('department', \DB::raw('count(*) as count'))
+            ->groupBy('department')
+            ->get()
+            ->pluck('count', 'department');
+
+        // Shift Compliance (Arrived before 09:30 AM)
+        $onTimeCount = AttendanceLog::whereDate('punch_time', $today)
+            ->where('punch_state', '0')
+            ->whereTime('punch_time', '<=', $this->shiftStart)
+            ->whereIn('emp_code', function ($q) use ($today) {
+                $q->selectRaw('MIN(punch_time)')
+                  ->from('attendance_logs')
+                  ->whereDate('punch_time', $today)
+                  ->where('punch_state', '0')
+                  ->groupBy('emp_code');
+            })
+            ->distinct('emp_code')
+            ->count();
+        
+        $complianceRate = $todayPresent > 0 ? round(($onTimeCount / $todayPresent) * 100) : 0;
+
+        // Average Late Minutes
+        $lateLogs = AttendanceLog::whereDate('punch_time', $today)
+            ->where('punch_state', '0')
+            ->whereTime('punch_time', '>', $this->shiftStart)
+            ->whereIn('emp_code', function ($q) use ($today) {
+                $q->selectRaw('MIN(punch_time)')
+                  ->from('attendance_logs')
+                  ->whereDate('punch_time', $today)
+                  ->where('punch_state', '0')
+                  ->groupBy('emp_code');
+            })
+            ->get();
+
+        $totalLateMinutes = 0;
+        $shiftStartTime = Carbon::parse($today . ' ' . $this->shiftStart);
+        foreach ($lateLogs as $log) {
+            $punchTime = Carbon::parse($log->punch_time);
+            $totalLateMinutes += $punchTime->diffInMinutes($shiftStartTime);
+        }
+        $avgLateMinutes = $todayLate > 0 ? round($totalLateMinutes / $todayLate) : 0;
+
         return view('dashboard.index', [
             'employees'        => $employees,
             'totalEmployees'   => $totalEmployees,
@@ -66,6 +117,10 @@ class DashboardController extends Controller
             'absentEmployees'  => $absentEmployees,
             'hourlyData'       => $hourlyData,
             'shiftStart'       => $this->shiftStart,
+            'weeklyTrend'      => $weeklyTrend,
+            'deptDistribution' => $deptDistribution,
+            'complianceRate'   => $complianceRate,
+            'avgLateMinutes'   => $avgLateMinutes,
         ]);
     }
 
