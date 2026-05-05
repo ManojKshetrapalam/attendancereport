@@ -13,19 +13,19 @@
 
 {{-- Stats Row --}}
 <div class="stats-grid">
-    <a href="{{ route('dashboard.index', ['view' => 'present']) }}" class="stat-card green {{ request('view') === 'present' ? 'active' : '' }}" style="text-decoration:none">
+    <a href="{{ route('dashboard', ['view' => 'present']) }}" class="stat-card green {{ request('view') === 'present' ? 'active' : '' }}" style="text-decoration:none">
         <div class="stat-icon">✅</div>
         <div class="stat-value">{{ $todayPresent }}</div>
         <div class="stat-label">Present Today</div>
         <div class="stat-sub">Out of {{ $totalEmployees }} employees</div>
     </a>
-    <a href="{{ route('dashboard.index', ['view' => 'absent']) }}" class="stat-card red {{ request('view') === 'absent' ? 'active' : '' }}" style="text-decoration:none">
+    <a href="{{ route('dashboard', ['view' => 'absent']) }}" class="stat-card red {{ request('view') === 'absent' ? 'active' : '' }}" style="text-decoration:none">
         <div class="stat-icon">❌</div>
         <div class="stat-value">{{ $todayAbsent }}</div>
         <div class="stat-label">Absent Today</div>
         <div class="stat-sub">{{ $totalEmployees > 0 ? round(($todayAbsent/$totalEmployees)*100) : 0 }}% absence rate</div>
     </a>
-    <a href="{{ route('dashboard.index', ['view' => 'late']) }}" class="stat-card yellow {{ request('view') === 'late' ? 'active' : '' }}" style="text-decoration:none">
+    <a href="{{ route('dashboard', ['view' => 'late']) }}" class="stat-card yellow {{ request('view') === 'late' ? 'active' : '' }}" style="text-decoration:none">
         <div class="stat-icon">⏰</div>
         <div class="stat-value">{{ $todayLate }}</div>
         <div class="stat-label">Late Arrivals</div>
@@ -49,7 +49,7 @@
 <div class="card" id="drilldown-section" style="margin-bottom:24px; border: 2px solid var(--color-accent)">
     <div class="card-header" style="background: rgba(99, 102, 241, 0.05)">
         <h3 style="color: var(--color-accent)">🔍 {{ $drilldownTitle }} ({{ $drilldownData->count() }})</h3>
-        <a href="{{ route('dashboard.index') }}" style="color:var(--color-muted);text-decoration:none;font-size:12px">✕ Close Drilldown</a>
+        <a href="{{ route('dashboard') }}" style="color:var(--color-muted);text-decoration:none;font-size:12px">✕ Close Drilldown</a>
     </div>
     <div style="max-height: 400px; overflow-y: auto">
         <table class="data-table">
