@@ -13,24 +13,24 @@
 
 {{-- Stats Row --}}
 <div class="stats-grid">
-    <div class="stat-card green">
+    <a href="{{ route('dashboard.index', ['view' => 'present']) }}" class="stat-card green {{ request('view') === 'present' ? 'active' : '' }}" style="text-decoration:none">
         <div class="stat-icon">✅</div>
         <div class="stat-value">{{ $todayPresent }}</div>
         <div class="stat-label">Present Today</div>
         <div class="stat-sub">Out of {{ $totalEmployees }} employees</div>
-    </div>
-    <div class="stat-card red">
+    </a>
+    <a href="{{ route('dashboard.index', ['view' => 'absent']) }}" class="stat-card red {{ request('view') === 'absent' ? 'active' : '' }}" style="text-decoration:none">
         <div class="stat-icon">❌</div>
         <div class="stat-value">{{ $todayAbsent }}</div>
         <div class="stat-label">Absent Today</div>
         <div class="stat-sub">{{ $totalEmployees > 0 ? round(($todayAbsent/$totalEmployees)*100) : 0 }}% absence rate</div>
-    </div>
-    <div class="stat-card yellow">
+    </a>
+    <a href="{{ route('dashboard.index', ['view' => 'late']) }}" class="stat-card yellow {{ request('view') === 'late' ? 'active' : '' }}" style="text-decoration:none">
         <div class="stat-icon">⏰</div>
         <div class="stat-value">{{ $todayLate }}</div>
         <div class="stat-label">Late Arrivals</div>
         <div class="stat-sub">After {{ $shiftStart }}</div>
-    </div>
+    </a>
     <div class="stat-card blue">
         <div class="stat-icon">📈</div>
         <div class="stat-value">{{ $complianceRate }}%</div>
@@ -44,6 +44,49 @@
         <div class="stat-sub">Across {{ $todayLate }} employees</div>
     </div>
 </div>
+
+@if($drilldownTitle)
+<div class="card" id="drilldown-section" style="margin-bottom:24px; border: 2px solid var(--color-accent)">
+    <div class="card-header" style="background: rgba(99, 102, 241, 0.05)">
+        <h3 style="color: var(--color-accent)">🔍 {{ $drilldownTitle }} ({{ $drilldownData->count() }})</h3>
+        <a href="{{ route('dashboard.index') }}" style="color:var(--color-muted);text-decoration:none;font-size:12px">✕ Close Drilldown</a>
+    </div>
+    <div style="max-height: 400px; overflow-y: auto">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Status Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($drilldownData as $emp)
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <div class="avatar">{{ strtoupper(substr($emp->first_name ?? $emp->emp_code, 0, 1)) }}</div>
+                            <div>
+                                <div style="font-weight:600;color:var(--color-text)">{{ $emp->first_name }} {{ $emp->last_name }}</div>
+                                <div style="font-size:11px;color:var(--color-muted)">ID: {{ $emp->emp_code }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ $emp->department }}</td>
+                    <td>
+                        @if($emp->status_info)
+                            <span class="badge" style="background:rgba(99,102,241,0.1); color:var(--color-accent)">{{ $emp->status_info }}</span>
+                        @else
+                            <span class="badge badge-absent">ABSENT</span>
+                        @endif
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
 
 <div class="grid-2">
     {{-- Weekly trend chart --}}

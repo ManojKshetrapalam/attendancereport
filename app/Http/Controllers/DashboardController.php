@@ -27,20 +27,19 @@ class DashboardController extends Controller
         $todayPresent = $presentCodes->count();
         $todayAbsent  = max(0, $totalEmployees - $todayPresent);
 
-        // Late arrivals — first IN punch after shift start
-        $todayLate = AttendanceLog::whereDate('punch_time', $today)
+        // Corrected Late arrivals — only first punch of the day after shift start
+        $allFirstPunches = AttendanceLog::whereDate('punch_time', $today)
             ->where('punch_state', '0')
-            ->whereTime('punch_time', '>', $this->shiftStart)
-            ->whereIn('emp_code', function ($q) use ($today) {
-                // Only count as late if this is their FIRST check-in
-                $q->selectRaw('MIN(punch_time)')
-                  ->from('attendance_logs')
-                  ->whereDate('punch_time', $today)
-                  ->where('punch_state', '0')
-                  ->groupBy('emp_code');
-            })
-            ->distinct('emp_code')
-            ->count();
+            ->orderBy('punch_time', 'asc')
+            ->get()
+            ->groupBy('emp_code')
+            ->map(fn($group) => $group->first());
+
+        $lateArrivals = $allFirstPunches->filter(function($punch) {
+            return Carbon::parse($punch->punch_time)->format('H:i') > $this->shiftStart;
+        });
+        
+        $todayLate = $lateArrivals->count();
 
         // Absent employees
         $absentEmployees = $employees->whereNotIn('emp_code', $presentCodes->toArray());
@@ -69,42 +68,47 @@ class DashboardController extends Controller
             ->get()
             ->pluck('count', 'department');
 
-        // Shift Compliance (Arrived before 09:30 AM)
-        $onTimeCount = AttendanceLog::whereDate('punch_time', $today)
-            ->where('punch_state', '0')
-            ->whereTime('punch_time', '<=', $this->shiftStart)
-            ->whereIn('emp_code', function ($q) use ($today) {
-                $q->selectRaw('MIN(punch_time)')
-                  ->from('attendance_logs')
-                  ->whereDate('punch_time', $today)
-                  ->where('punch_state', '0')
-                  ->groupBy('emp_code');
-            })
-            ->distinct('emp_code')
-            ->count();
+        // Shift Compliance (First arrival before 09:30 AM)
+        $onTimeArrivals = $allFirstPunches->filter(function($punch) {
+            return Carbon::parse($punch->punch_time)->format('H:i') <= $this->shiftStart;
+        });
+        $onTimeCount = $onTimeArrivals->count();
         
         $complianceRate = $todayPresent > 0 ? round(($onTimeCount / $todayPresent) * 100) : 0;
 
         // Average Late Minutes
-        $lateLogs = AttendanceLog::whereDate('punch_time', $today)
-            ->where('punch_state', '0')
-            ->whereTime('punch_time', '>', $this->shiftStart)
-            ->whereIn('emp_code', function ($q) use ($today) {
-                $q->selectRaw('MIN(punch_time)')
-                  ->from('attendance_logs')
-                  ->whereDate('punch_time', $today)
-                  ->where('punch_state', '0')
-                  ->groupBy('emp_code');
-            })
-            ->get();
-
         $totalLateMinutes = 0;
         $shiftStartTime = Carbon::parse($today . ' ' . $this->shiftStart);
-        foreach ($lateLogs as $log) {
+        foreach ($lateArrivals as $log) {
             $punchTime = Carbon::parse($log->punch_time);
-            $totalLateMinutes += $punchTime->diffInMinutes($shiftStartTime);
+            $totalLateMinutes += max(0, $punchTime->diffInMinutes($shiftStartTime));
         }
         $avgLateMinutes = $todayLate > 0 ? round($totalLateMinutes / $todayLate) : 0;
+
+        // Drilldown Data
+        $drilldownTitle = null;
+        $drilldownData = collect();
+        $view = request('view');
+
+        if ($view === 'present') {
+            $drilldownTitle = "Present Employees Today";
+            $drilldownData = $employees->whereIn('emp_code', $presentCodes->toArray())->map(function($emp) use ($allFirstPunches) {
+                $punch = $allFirstPunches->get($emp->emp_code);
+                $emp->status_info = $punch ? 'Arrived at ' . Carbon::parse($punch->punch_time)->format('h:i A') : 'Present';
+                return $emp;
+            });
+        } elseif ($view === 'absent') {
+            $drilldownTitle = "Absent Employees Today";
+            $drilldownData = $absentEmployees;
+        } elseif ($view === 'late') {
+            $drilldownTitle = "Late Arrivals Today";
+            $drilldownData = $employees->whereIn('emp_code', $lateArrivals->pluck('emp_code')->toArray())->map(function($emp) use ($allFirstPunches, $shiftStartTime) {
+                $punch = $allFirstPunches->get($emp->emp_code);
+                $delay = Carbon::parse($punch->punch_time)->diffInMinutes($shiftStartTime);
+                $emp->status_info = "Arrived at " . Carbon::parse($punch->punch_time)->format('h:i A') . " ({$delay}m late)";
+                return $emp;
+            });
+        }
 
         return view('dashboard.index', [
             'employees'        => $employees,
@@ -121,6 +125,8 @@ class DashboardController extends Controller
             'deptDistribution' => $deptDistribution,
             'complianceRate'   => $complianceRate,
             'avgLateMinutes'   => $avgLateMinutes,
+            'drilldownTitle'   => $drilldownTitle,
+            'drilldownData'    => $drilldownData,
         ]);
     }
 

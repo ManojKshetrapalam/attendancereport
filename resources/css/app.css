@@ -114,6 +114,8 @@ body { background: var(--color-bg); color: var(--color-text); margin: 0; }
 .stat-card.yellow::before { background: var(--color-yellow); }
 .stat-card.blue::before { background: var(--color-accent); }
 .stat-card.orange::before { background: var(--color-orange); }
+.stat-card.active { border-color: var(--color-accent); box-shadow: 0 0 15px var(--color-accent-glow); }
+.stat-card[href] { cursor: pointer; }
 
 .stat-icon { font-size: 28px; margin-bottom: 12px; }
 .stat-value { font-size: 36px; font-weight: 700; color: white; line-height: 1; }
