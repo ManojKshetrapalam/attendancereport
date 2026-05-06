@@ -281,4 +281,63 @@ class AttendanceReportController extends Controller
 
         return $excel->download('monthly_report_' . $month . '.xlsx');
     }
+
+    public function drilldown(Request $request)
+    {
+        $empCode    = $request->emp_code;
+        $month      = $request->input('month', now()->format('Y-m'));
+        $shiftStart = $request->input('shift_start', '09:30');
+        $startDate  = Carbon::parse($month . '-01');
+        $endDate    = $startDate->copy()->endOfMonth();
+
+        $employee = Employee::where('emp_code', $empCode)->firstOrFail();
+        
+        $logs = AttendanceLog::where('emp_code', $empCode)
+            ->whereBetween('punch_time', [$startDate, $endDate])
+            ->orderBy('punch_time')
+            ->get()
+            ->groupBy(fn($l) => Carbon::parse($l->punch_time)->format('Y-m-d'));
+
+        $workingDays = 0;
+        $dailyStats  = [];
+        $presentDays = 0;
+        $lateDays    = 0;
+        $totalHours  = 0;
+        $dayCount    = 0;
+
+        for ($d = $startDate->copy(); $d->lte($endDate); $d->addDay()) {
+            $dateStr = $d->format('Y-m-d');
+            if ($d->dayOfWeek !== Carbon::SUNDAY) $workingDays++;
+
+            $dayLogs = $logs->get($dateStr, collect());
+            $present = $dayLogs->isNotEmpty();
+            $firstIn = $dayLogs->where('punch_state', '0')->first();
+            $lastOut = $dayLogs->where('punch_state', '1')->last();
+            $late    = $present && $firstIn && Carbon::parse($firstIn->punch_time)->format('H:i') > $shiftStart;
+            
+            $hours = null;
+            if ($firstIn && $lastOut) {
+                $hours = round(Carbon::parse($firstIn->punch_time)->diffInMinutes(Carbon::parse($lastOut->punch_time)) / 60, 1);
+                $totalHours += $hours;
+                $dayCount++;
+            }
+
+            if ($present) $presentDays++;
+            if ($late) $lateDays++;
+
+            $dailyStats[$dateStr] = [
+                'present'  => $present,
+                'late'     => $late,
+                'first_in' => $firstIn ? $firstIn->punch_time : null,
+                'last_out' => $lastOut ? $lastOut->punch_time : null,
+                'hours'    => $hours,
+            ];
+        }
+
+        $avgHours = $dayCount > 0 ? round($totalHours / $dayCount, 1) : null;
+
+        return view('reports.partials.employee_drilldown', compact(
+            'employee', 'dailyStats', 'presentDays', 'lateDays', 'avgHours', 'workingDays'
+        ));
+    }
 }

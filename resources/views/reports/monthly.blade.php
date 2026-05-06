@@ -102,7 +102,7 @@
             </thead>
             <tbody>
                 @foreach($report as $row)
-                    <tr>
+                    <tr class="row-clickable" data-emp-code="{{ $row['emp_code'] }}" data-name="{{ $row['name'] }}">
                         <td>
                             <div style="display:flex;align-items:center;gap:10px">
                                 <div class="avatar" style="width:28px;height:28px;font-size:11px">{{ strtoupper(substr($row['name'], 0, 1)) }}</div>
@@ -172,5 +172,48 @@ new Chart(trendCtx, {
         }
     }
 });
+
+function showDrilldown(empCode, name) {
+    const month = "{{ $month }}";
+    const shiftStart = "{{ $shiftStart }}";
+    const url = `{{ route('reports.monthly.drilldown') }}?emp_code=${empCode}&month=${month}&shift_start=${shiftStart}`;
+    
+    openModal(`Attendance Details — ${name}`);
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('modalBody').innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById('modalBody').innerHTML = '<div class="alert alert-error">Error loading details.</div>';
+            console.error('Error:', error);
+        });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.row-clickable').forEach(row => {
+        row.addEventListener('click', () => {
+            showDrilldown(row.dataset.empCode, row.dataset.name);
+        });
+    });
+});
 </script>
+
+<style>
+    .row-clickable { cursor: pointer; }
+    .row-clickable:hover td { background: rgba(255,255,255,0.05) !important; }
+    .loader {
+        border: 3px solid rgba(255,255,255,0.1);
+        border-radius: 50%;
+        border-top: 3px solid var(--color-accent);
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
 @endpush
